@@ -20,8 +20,6 @@ volatile byte debounce = 0;
 volatile byte debounceA = 0;
 volatile byte debounceB = 0;
 
-#define digitalPinToInterrupt(p) ( (p <= 7) ? (p) : (10 - (p - 8)) )
-
 void setup() {
   pinMode(ledR, OUTPUT);
   pinMode(ledG, OUTPUT);
@@ -42,10 +40,6 @@ void setup() {
 
   GIMSK |= 0x20;
   PCMSK1 |= 0x07;
-
-//  attachInterrupt(digitalPinToInterrupt(encSw), buttonPressed, CHANGE);
-//  attachInterrupt(digitalPinToInterrupt(encA),  knobTurnedA,   CHANGE);
-//  attachInterrupt(digitalPinToInterrupt(encB),  knobTurnedB,   CHANGE);
 }
 
 void onWrite(byte count) {
@@ -70,14 +64,6 @@ void onRead() {
       reg++;
       reg %= REG_MAX;
 }
-
-enum {
-  NONE,
-  A_ROSE,
-  B_ROSE,
-  A_FELL,
-  B_FELL
-};
 
 ISR(PCINT1_vect) {
   byte intEnc = PINB & 0x03;
