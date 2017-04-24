@@ -9,11 +9,13 @@ const byte ledR   = 0;
 const byte jp2    = 3;
 const byte intr   = 7;
 
-volatile byte pips = 0;
-volatile byte presses = 0;
-volatile byte Sw = 1;
+#define REG_PIPS    0
+#define REG_PRESSES 1
+#define REG_LED     2
+#define REG_MAX     3
+
 volatile byte reg = 0;
-volatile byte index = 0;
+volatile byte registers[REG_MAX];
 volatile byte debounce = 0;
 volatile byte debounceA = 0;
 volatile byte debounceB = 0;
@@ -50,39 +52,23 @@ void onWrite(byte count) {
   byte i;
   reg = TinyWireS.receive();
   count--;
-  digitalWrite(ledR, reg & 0x10);
-  digitalWrite(ledG, reg & 0x20);
-  digitalWrite(ledB, reg & 0x40);
   while (count) {
-    TinyWireS.receive();
+    registers[reg] = TinyWireS.receive();
     count--;
+    if (reg == REG_LED) {
+        PORTA &= 0xF4;
+        PORTA |= registers[reg] & 0x03;
+    }
+    reg++;
+    reg %= REG_MAX;
   }
 }
 
 void onRead() {
-  if (reg & 0x1) {
-    index = 1;
-  } else if (reg & 0x2) {
-    index = 2;
-  }
-  switch (index) {
-    case 3:
-      index = 0;
-    case 0:
-      TinyWireS.send('E');
-      break;
-    case 1:
-      TinyWireS.send(pips);
-      pips = 0;
-      digitalWrite(intr, LOW);
-      break;
-    case 2:
-      TinyWireS.send(presses);
-      presses = 0;
-      digitalWrite(intr, LOW);
-      break;
-  }
-  index++;
+      TinyWireS.send(registers[reg]);
+      registers[reg] = 0;
+      reg++;
+      reg %= REG_MAX;
 }
 
 enum {
@@ -96,12 +82,13 @@ enum {
 ISR(PCINT1_vect) {
   byte intEnc = PINB & 0x03;
   byte intSw = PINB & 0x04;
+  static byte Sw = 0;
   static byte enc = 0;
   static byte done = false;
   byte change = intEnc ^ enc;
 
   if (intSw != Sw && !intSw && !debounce) {
-    presses++;
+    registers[REG_PRESSES]++;
     debounce = 25;
     digitalWrite(intr, HIGH);
   }
@@ -132,10 +119,10 @@ ISR(PCINT1_vect) {
   if (done) {
     switch (change) {
       case 0x01:
-        pips--;
+        registers[REG_PIPS]--;
         break;
       case 0x02:
-        pips++;
+        registers[REG_PIPS]++;
         break;
     }
   }
