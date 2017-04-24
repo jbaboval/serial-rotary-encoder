@@ -11,12 +11,12 @@ const byte intr   = 7;
 
 volatile byte pips = 0;
 volatile byte presses = 0;
-volatile byte A = 1;
-volatile byte B = 1;
 volatile byte Sw = 1;
 volatile byte reg = 0;
 volatile byte index = 0;
 volatile byte debounce = 0;
+volatile byte debounceA = 0;
+volatile byte debounceB = 0;
 
 #define digitalPinToInterrupt(p) ( (p <= 7) ? (p) : (10 - (p - 8)) )
 
@@ -85,42 +85,74 @@ void onRead() {
   index++;
 }
 
+enum {
+  NONE,
+  A_ROSE,
+  B_ROSE,
+  A_FELL,
+  B_FELL
+};
+
 ISR(PCINT1_vect) {
-  byte intA  = digitalRead(encA);
-  byte intB  = digitalRead(encB);
-  byte intSw = digitalRead(encSw);
-  byte which = 0;
+  byte intEnc = PINB & 0x03;
+  byte intSw = PINB & 0x04;
+  static byte enc = 0;
+  static byte done = false;
+  byte change = intEnc ^ enc;
 
   if (intSw != Sw && !intSw && !debounce) {
     presses++;
+    debounce = 25;
     digitalWrite(intr, HIGH);
-    debounce = 50;
   }
 
   Sw = intSw;
 
-  if (intA == A && intB == B) {
+  if (change & 0x01 && debounceA) {
     return;
-  } else if ( intB != B) {
-    which = 1;
+  } else if (change & 0x02 && debounceB) {
+    return;
   }
 
-  A = intA;
-  B = intB;
+  if (change & 0x01) {
+    debounceA = 50;
+  }
 
-  if ( A && B ) {
-    if (which) {
-      pips++;
-    } else {
-      pips--;
-    }
+  if (change & 0x02) {
+    debounceB = 50;
+  }
+
+  if (change && (intEnc == 0x00 || intEnc == 0x03)) {
     digitalWrite(intr, HIGH);
+    done = true;
+    debounceA = 2;
+    debounceB = 2;
   }
+
+  if (done) {
+    switch (change) {
+      case 0x01:
+        pips--;
+        break;
+      case 0x02:
+        pips++;
+        break;
+    }
+  }
+
+  done = false;
+  enc = intEnc;
 }
 
 void loop() {
   tws_delay(5);
   if (debounce) {
     debounce--;
+  }
+  if (debounceA) {
+    debounceA--;
+  }
+  if (debounceB) {
+    debounceB--;
   }
 }
