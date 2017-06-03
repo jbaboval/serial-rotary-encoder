@@ -27,7 +27,7 @@ void setup() {
   pinMode(encA, INPUT);
   pinMode(encB, INPUT);
   pinMode(encSw,INPUT);
-  pinMode(intr, OUTPUT);
+  pinMode(intr, INPUT);
 
   digitalWrite(encA, HIGH);
   digitalWrite(encB, HIGH);
@@ -63,6 +63,7 @@ void onRead() {
       registers[reg] = 0;
       reg++;
       reg %= REG_MAX;
+      pinMode(intr, INPUT);
 }
 
 ISR(PCINT1_vect) {
@@ -76,7 +77,7 @@ ISR(PCINT1_vect) {
   if (intSw != Sw && !intSw && !debounce) {
     registers[REG_PRESSES]++;
     debounce = 25;
-    digitalWrite(intr, HIGH);
+    pinMode(intr, OUTPUT);
   }
 
   Sw = intSw;
@@ -96,7 +97,7 @@ ISR(PCINT1_vect) {
   }
 
   if (change && (intEnc == 0x00 || intEnc == 0x03)) {
-    digitalWrite(intr, HIGH);
+    pinMode(intr, OUTPUT);
     done = true;
     debounceA = 2;
     debounceB = 2;
